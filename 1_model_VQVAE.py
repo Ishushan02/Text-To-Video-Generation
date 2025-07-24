@@ -190,7 +190,6 @@ class VecQVAE(nn.Module):
 dataset = pd.read_csv("./data/modified_tgif.csv")
 dataset = dataset[(dataset['frames'] <= 40) & (dataset['frames'] > 15)].copy().reset_index(drop=True)
 dataset = dataset[:10000] # thread 1 first 10000
-
 # dataset.shape
 
 def getNumpyArray(dataset, index):
@@ -235,24 +234,31 @@ class FrameDataset(Dataset):
         return len(self.data)
     
     def npArray(self, index):
-        row = self.data.iloc[index]
-        url = row['url']
-        resp = urllib.request.urlopen(url)
-        image_data = resp.read()
-        img = Image.open(io.BytesIO(image_data))
-
-        frames = []
-        for frame in ImageSequence.Iterator(img):
-            frame_rgb = frame.convert("RGB")
-            frames.append(np.array(frame_rgb))
-
-        return frames
+        try:
+            row = self.data.iloc[index]
+            totalframes = self.data.iloc[index]['frames']
+            url = row['url']
+            resp = urllib.request.urlopen(url)
+            image_data = resp.read()
+            img = Image.open(io.BytesIO(image_data))
+    
+            frames = []
+            for frame in ImageSequence.Iterator(img):
+                frame_rgb = frame.convert("RGB")
+                frames.append(np.array(frame_rgb))
+    
+            return frames
+    
+        except Exception as e:
+            print(f"Error processing index {index} for url {url}: {e}")
+            fallback = torch.zeros((256, 256, 3), dtype=torch.uint8)
+            return [fallback.numpy()]
     
     def __getitem__(self, index):
         # print(index)
         gif = self.npArray(index)
         caption = self.data.iloc[index]['caption']
-        totalframes = self.data.iloc[index]['frames']
+        totalframes = len(gif)#self.data.iloc[index]['frames']
         
         if totalframes < self.totalSequence:
             gif += [gif[-1]] * (self.totalSequence - totalframes)
