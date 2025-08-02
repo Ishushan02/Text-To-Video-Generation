@@ -13,9 +13,9 @@ MAIN REASON
 
 ```
 +--------+--------------+---------------------+-------------------------------+
-| Input  | Ground Truth | MSE Only Output     | MSE + Color + Perceptual     |
+| Input  | Ground Truth | Current Loss Output | current + Color Loss + Perceptual  |
 +--------+--------------+---------------------+-------------------------------+
-| ![IMG] | 🟩🟥🟦         | 🟩⬜⬜ (washed out)   | 🟩🟥🟦 (true color restored)     |
+| ![IMG] | 🟩🟥🟦        | 🟩⬜⬜ (washed out)  | 🟩🟥🟦 (true color restored)    |
 +--------+--------------+---------------------+-------------------------------+
 ```
 
