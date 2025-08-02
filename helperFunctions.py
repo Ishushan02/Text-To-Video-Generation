@@ -22,6 +22,9 @@ import urllib
 import io
 import cv2
 import hashlib
+import kornia
+from torchvision.models import vgg16
+
 
 
 
@@ -74,99 +77,150 @@ class VectorQuantizeImage(nn.Module):
         return quantized, encoding_indices, perplexity, diversity_loss
         
      
+        
 
+class SelfAttentionBlock(nn.Module):
+    def __init__(self, inChannels, heads = 8):
+        super().__init__()
+        self.query = nn.Conv2d(inChannels, inChannels // heads, 1)
+        self.key = nn.Conv2d(inChannels, inChannels // heads, 1)
+        self.value = nn.Conv2d(inChannels, inChannels, 1)
+
+        self.coeff = nn.Parameter(torch.zeros(1))
+
+    def forward(self, x):
+        batch, channel, height, width = x.shape
+        q = self.query(x).view(batch, -1, height * width).permute(0, 2, 1)
+        k = self.key(x).view(batch, -1, height * width)
+        v = self.value(x).view(batch, -1, height * width)
+        attn = torch.matmul(q, k)                                          
+        attn = Fn.softmax(attn, dim=-1)
+        attn_reshaped = attn.permute(0, 2, 1) 
+        
+        out = torch.matmul(v, attn_reshaped)                        
+        out = out.view(batch, channel, height, width)                    
+        out = self.coeff * out + x                                      
+        return out
+
+# rad = torch.randn(10, 128, 64, 64)
+# sAtt = SelfAttentionBlock(128, 4)
+# out = sAtt(rad)
+# out.shape
 
 class VecQVAE(nn.Module):
-    def __init__(self, inChannels = 1, hiddenDim = 32, codeBookdim = 128, embedDim = 128):
+    def __init__(self, inChannels=3, hiddenDim=256, codeBookdim=256, embedDim=128):
         super().__init__()
         self.inChannels = inChannels
         self.hiddenDim = hiddenDim
         self.codeBookdim = codeBookdim
         self.embedDim = embedDim
 
-        self.encoder = nn.Sequential(
-            nn.Conv2d(inChannels, hiddenDim, 4, 2, 1), 
+        self.block1 = nn.Sequential(
+            nn.Conv2d(inChannels, hiddenDim, 4, 2, 1),
             nn.BatchNorm2d(hiddenDim),
-            nn.ReLU(inplace=True),
-            
+            nn.ReLU(inplace=True)
+        )
+        self.block2 = nn.Sequential(
             nn.Conv2d(hiddenDim, hiddenDim, 3, 1, 1),
             nn.BatchNorm2d(hiddenDim),
-            nn.ReLU(inplace=True),
-            
+            nn.ReLU(inplace=True)
+        )
+        self.block3 = nn.Sequential(
             nn.Conv2d(hiddenDim, 2 * hiddenDim, 4, 2, 1),
             nn.BatchNorm2d(2 * hiddenDim),
             nn.ReLU(inplace=True),
-            
-            nn.Conv2d(2 * hiddenDim, 2 * hiddenDim, 3, 1, 1),
-            nn.BatchNorm2d(2 * hiddenDim),
-            nn.ReLU(inplace=True),
-            
-            nn.Conv2d(2 * hiddenDim, embedDim, 1),
+            SelfAttentionBlock(2 * hiddenDim)
         )
 
-        self.vector_quantize = VectorQuantizeImage(codeBookDim=codeBookdim,embeddingDim=embedDim)
-
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(embedDim, 2 * hiddenDim, 4, 2, 1),
-            nn.BatchNorm2d(2 * hiddenDim),
-            nn.ReLU(inplace=True),
-            
+        self.block4 = nn.Sequential(
             nn.Conv2d(2 * hiddenDim, 2 * hiddenDim, 3, 1, 1),
             nn.BatchNorm2d(2 * hiddenDim),
             nn.ReLU(inplace=True),
-            
+            SelfAttentionBlock(2 * hiddenDim)
+        )
+
+        self.block5 = nn.Sequential(
+            nn.Conv2d(2 * hiddenDim, embedDim, 1)
+        )
+
+        self.vector_quantize = VectorQuantizeImage(codeBookDim=codeBookdim, embeddingDim=embedDim)
+
+        self.block6 = nn.Sequential(
+            nn.ConvTranspose2d(embedDim, 2 * hiddenDim, 1),
+            nn.BatchNorm2d(2 * hiddenDim),
+            nn.ReLU(inplace=True)
+        )
+        self.block7 = nn.Sequential(
+            nn.Conv2d(2 * hiddenDim, 2 * hiddenDim, 3, 1, 1),
+            nn.BatchNorm2d(2 * hiddenDim),
+            nn.ReLU(inplace=True)
+        )
+        self.block8 = nn.Sequential(
             nn.ConvTranspose2d(2 * hiddenDim, hiddenDim, 4, 2, 1),
             nn.BatchNorm2d(hiddenDim),
-            nn.ReLU(inplace=True),
-            
+            nn.ReLU(inplace=True)
+        )
+        self.block9 = nn.Sequential(
             nn.Conv2d(hiddenDim, hiddenDim, 3, 1, 1),
             nn.BatchNorm2d(hiddenDim),
-            nn.ReLU(inplace=True),
-            
-            nn.Conv2d(hiddenDim, inChannels, 1),
+            nn.ReLU(inplace=True)
+        )
+        self.block10 = nn.Sequential(
+            nn.ConvTranspose2d(hiddenDim, hiddenDim // 2, 4, 2, 1),
+            nn.BatchNorm2d(hiddenDim // 2),
+            nn.ReLU(inplace=True)
+        )
+       
+        self.outputlayer = nn.Sequential(
+            nn.Conv2d(hiddenDim // 2, inChannels, 1),
             nn.Sigmoid()
         )
 
-    def encodeImage(self, x, noise_std = 0.15):
+    def encodeImage(self, x, noise_std=0.15):
         if self.training:
-            encodedOut = self.encoder(x)
-            encodedOut = encodedOut + torch.randn_like(encodedOut) * noise_std
+            x1 = self.block1(x)
+            x2 = self.block2(x1)
+            x3 = self.block3(x2)
+            x4 = self.block4(x3)
+            encoded = self.block5(x4)
+            encoded += torch.randn_like(encoded) * noise_std
         else:
-            encodedOut = self.encoder(x)
+            x1 = self.block1(x)
+            x2 = self.block2(x1)
+            x3 = self.block3(x2)
+            x4 = self.block4(x3)
+            encoded = self.block5(x4)
+        return encoded, (x2, x3, x4)
 
-        return encodedOut
-
-    def decodeImage(self, quantized_vector):
-        decodedOut = self.decoder(quantized_vector)
-        return decodedOut
+    def decodeImage(self, quantized_vector, skips):
+        x2, x3, x4 = skips
+        # print(x2.shape, x3.shape, x4.shape)
+        x = self.block6(quantized_vector)
+        x = self.block7(x + x4)
+        x = self.block8(x + x3)
+        x = self.block9(x + x2)
+        x = self.block10(x)
+        return self.outputlayer(x)
 
     def forward(self, x):
-        batch_size, time_frame, inChannels, height, width = x.shape
+        batch, timeFrames, channel, height, width = x.shape
+        x = rearrange(x, 'b t c h w -> (b t) c h w')
 
-        x_frames = rearrange(x, 'b t c h w -> (b t) c h w')
-        encodedOut = self.encodeImage(x_frames)
-        batch_size_time_frame, encoded_channel, encoded_height, encoded_width = encodedOut.shape
-        
-        # print(f"Encoded Shape: {encodedOut.shape}")
+        encoded, skips = self.encodeImage(x)
+        batchTime, encodedChannels, encodedHeight, encodedWidth = encoded.shape
+        encoder_reshaped = rearrange(encoded, 'bt d h w -> (bt h w) d')
+        quantized_vectors, encoding_indices, perplexity, diversity_loss = self.vector_quantize(encoder_reshaped)
 
-        
-        vectorize_input = rearrange(encodedOut, 'bt d h w -> (bt h w) d')
-        quantized_vectors, encoding_indices, perplexity, diversity_loss  = self.vector_quantize(vectorize_input)
-        codebook_loss = Fn.mse_loss(vectorize_input.detach(), quantized_vectors)
-        commitment_loss = Fn.mse_loss(vectorize_input, quantized_vectors.detach())
+        codebook_loss = Fn.mse_loss(encoder_reshaped.detach(), quantized_vectors)
+        commitment_loss = Fn.mse_loss(encoder_reshaped, quantized_vectors.detach())
 
-        quantized_vectors = vectorize_input + (quantized_vectors - vectorize_input).detach()
-        # print(f"CodeBook Loss: {codebook_loss} , Commitment Loss: {commitment_loss}")
-        # print(f"Quantized SHape: {quantized_vectors.shape}")
+        quantized_vectors = encoder_reshaped + (quantized_vectors - encoder_reshaped).detach()
+        # print(quantized.shape)
+        decoder_input = rearrange(quantized_vectors, '(bt h w) d -> bt d h w', bt=batch * timeFrames, d=encodedChannels, h=encodedHeight, w=encodedWidth)
+        # print(decoder_input.shape)
 
-        decoder_input = rearrange(quantized_vectors, '(bt h w) d -> bt d h w', bt = batch_size_time_frame, d = encoded_channel, h = encoded_height, w = encoded_width)
-        # print(f"Decoded Input SHape: {decoder_input.shape}")
-        decodedOut = self.decodeImage(decoder_input)
-
-        # print(f"Decoded SHape: {decodedOut.shape}")
-        
+        decodedOut= self.decodeImage(decoder_input, skips)
         return decoder_input, decodedOut, codebook_loss, commitment_loss, encoding_indices, perplexity, diversity_loss
-
 
 
 
@@ -218,3 +272,42 @@ class FrameDataset(Dataset):
 
         return tensorFrames, caption
     
+
+def perceptualLoss(pred, target):
+    vgg = vgg16(pretrained = True).features[:17].eval()
+    vgg.to(device)
+    for param in vgg.parameters():
+        param.requires_grad = False
+
+    # print(pred.shape)
+    batch, channels, height, width = pred.shape
+
+    pred = pred.view(batch, channels, height, width)
+    target = target.view(batch, channels, height, width)
+
+    if pred.shape[1] == 1:
+        pred = pred.repeat(1, 3, 1, 1)
+        target = target.repeat(1, 3, 1, 1)
+
+
+    vgg_pred = vgg(pred).to(device)
+    vgg_true = vgg(target).to(device)
+
+    perceptualoss = Fn.mse_loss(vgg_pred, vgg_true)
+    return perceptualoss
+
+# pred = torch.randn(1, 3, 10, 10)
+# pred1 = torch.randn(1, 3, 10, 10)
+# out = perceptualLoss(pred, pred1)
+# out.item()
+
+def lab_color_loss(pred, target):
+    pred_lab = kornia.color.rgb_to_lab(pred)
+    target_lab = kornia.color.rgb_to_lab(target)
+    loss = Fn.mse_loss(pred_lab, target_lab)
+    return loss
+
+# pred = torch.randn(1, 3, 10, 10)
+# pred1 = torch.randn(1, 3, 10, 10)
+# out = lab_color_loss(pred, pred1)
+# out.item()
