@@ -30,9 +30,9 @@ wandb.login()
 
 wandb.init(
     project="T2V-VQVAE-2",  
-    name="experiment-1-thread-1",    
-    id="sopokkij",  
-    resume="allow",
+    name="experiment-1-thread-4",    
+    # id="u88300uu",  
+    # resume="allow",
 )
 
 class VectorQuantizeImage(nn.Module):
@@ -82,8 +82,6 @@ class VectorQuantizeImage(nn.Module):
         diversity_loss = 1.0 - normalized_entropy
 
         return quantized, encoding_indices, perplexity, diversity_loss
-        
-        
 
 class SelfAttentionBlock(nn.Module):
     def __init__(self, inChannels, heads = 8):
@@ -238,7 +236,7 @@ class VecQVAE(nn.Module):
 dataset = pd.read_csv("./data/modified_tgif.csv")
 dataset = dataset[(dataset['frames'] <= 40) & (dataset['frames'] > 15)].copy().reset_index(drop=True)
 print(dataset.shape)
-dataset = dataset[:8000] # all thread 
+dataset = dataset[24000:32000] # 2nd thread 
 # dataset.shape
 
 def getNumpyArray(dataset, index):
@@ -398,8 +396,22 @@ def lab_color_loss(pred, target):
 
 # modelValA = torch.load("./models/VQVAE-GIF.pt", map_location=torch.device('cpu'))
 # modelA.load_state_dict(modelValA)
+start_epoch = 0
 
-for each_epoch in range(epochs):
+checkpoint_path = "./models/VQVAE-GIF.pt"
+if os.path.exists(checkpoint_path):
+    checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+    modelA.load_state_dict(checkpoint['model_state_dict'])
+    optimizerA.load_state_dict(checkpoint['optimizer_state_dict'])
+    schedulerA.load_state_dict(checkpoint['scheduler_state_dict'])
+    start_epoch = checkpoint['epoch'] + 1
+    print(f"Resuming from epoch {start_epoch}")
+else:
+    print("Loading pretrained model...")
+    modelValA = torch.load("./models/VQVAE-GIF.pt", map_location=torch.device('cpu'))
+    modelA.load_state_dict(modelValA)
+
+for each_epoch in range(start_epoch, epochs):
     modelA.train()
     reconstruct_loss = 0.0
     codeb_loss = 0.0
@@ -413,7 +425,6 @@ for each_epoch in range(epochs):
 
     for X, caption in loop:
         X = X.to(device)
-        # Y = Y.to(device)
         
         quantized_latents, decoderOut, codebook_loss, commitment_loss, encoding_indices, perplexity, diversity_loss = modelA(X)
         
@@ -466,7 +477,14 @@ for each_epoch in range(epochs):
     diverse_loss /= len(dataloader)
     perceptualoss /= len(dataloader)
     colorLoss /= len(dataloader)
-    torch.save(modelA.state_dict(), "./models/VQVAE-GIF.pt")
+    # torch.save(modelA.state_dict(), "./models/VQVAE-GIF.pt")
+    torch.save({
+        'epoch': each_epoch,
+        'model_state_dict': modelA.state_dict(),
+        'optimizer_state_dict': optimizerA.state_dict(),
+        'scheduler_state_dict': schedulerA.state_dict()
+    }, checkpoint_path)
+    
     wandb.log({
         "VQVAE LR": optimizerA.param_groups[0]['lr'],
         "VQVAE Loss": vqvaeloss,
@@ -480,3 +498,4 @@ for each_epoch in range(epochs):
         "Color Loss":colorLoss
     })
     schedulerA.step()
+ 
