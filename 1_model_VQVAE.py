@@ -30,9 +30,9 @@ wandb.login()
 
 wandb.init(
     project="T2V-VQVAE-2",  
-    name="experiment-1-thread-4",    
-    # id="u88300uu",  
-    # resume="allow",
+    name="experiment-1-thread-5",    
+    id="jeuu7px8",  
+    resume="allow",
 )
 
 class VectorQuantizeImage(nn.Module):
@@ -236,7 +236,7 @@ class VecQVAE(nn.Module):
 dataset = pd.read_csv("./data/modified_tgif.csv")
 dataset = dataset[(dataset['frames'] <= 40) & (dataset['frames'] > 15)].copy().reset_index(drop=True)
 print(dataset.shape)
-dataset = dataset[24000:32000] # 2nd thread 
+dataset = dataset[32000:40000] # 5th thread 
 # dataset.shape
 
 def getNumpyArray(dataset, index):
@@ -352,6 +352,8 @@ optimizerA = torch.optim.Adam(
 schedulerA = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                 optimizerA, T_0=10, T_mult=2, eta_min=1e-6
             )
+modelA = torch.nn.DataParallel(modelA)
+modelA.to(device)
 
 epochs = 1000
 
