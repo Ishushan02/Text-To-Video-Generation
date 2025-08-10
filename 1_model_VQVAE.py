@@ -24,14 +24,16 @@ import urllib
 import io
 import cv2
 import hashlib
-
 import wandb
+
+os.environ['K8S_TIMEOUT_SECONDS'] = '12'
+
 wandb.login()
 
 wandb.init(
     project="T2V-VQVAE-2",  
-    name="experiment-1-thread-5",    
-    id="jeuu7px8",  
+    name="experiment-1-thread-8",    
+    id="yh6zn56b",  
     resume="allow",
 )
 
@@ -236,7 +238,7 @@ class VecQVAE(nn.Module):
 dataset = pd.read_csv("./data/modified_tgif.csv")
 dataset = dataset[(dataset['frames'] <= 40) & (dataset['frames'] > 15)].copy().reset_index(drop=True)
 print(dataset.shape)
-dataset = dataset[32000:40000] # 5th thread 
+dataset = dataset[56000:64000] # 8th thread 
 # dataset.shape
 
 def getNumpyArray(dataset, index):
@@ -352,8 +354,7 @@ optimizerA = torch.optim.Adam(
 schedulerA = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                 optimizerA, T_0=10, T_mult=2, eta_min=1e-6
             )
-modelA = torch.nn.DataParallel(modelA)
-modelA.to(device)
+
 
 epochs = 1000
 
@@ -412,6 +413,9 @@ else:
     print("Loading pretrained model...")
     modelValA = torch.load("./models/VQVAE-GIF.pt", map_location=torch.device('cpu'))
     modelA.load_state_dict(modelValA)
+
+modelA = torch.nn.DataParallel(modelA)
+modelA.to(device)
 
 for each_epoch in range(start_epoch, epochs):
     modelA.train()
@@ -482,7 +486,7 @@ for each_epoch in range(start_epoch, epochs):
     # torch.save(modelA.state_dict(), "./models/VQVAE-GIF.pt")
     torch.save({
         'epoch': each_epoch,
-        'model_state_dict': modelA.state_dict(),
+        'model_state_dict': modelA.module.state_dict(),
         'optimizer_state_dict': optimizerA.state_dict(),
         'scheduler_state_dict': schedulerA.state_dict()
     }, checkpoint_path)
