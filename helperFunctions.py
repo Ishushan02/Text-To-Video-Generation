@@ -25,7 +25,10 @@ import hashlib
 import kornia
 from torchvision.models import vgg16
 
-
+'''
+All this functions are from my previous Repo from Video Generation Flowing MNIST
+    (https://github.com/Ishushan02/Video-Generation-Flowing-MNIST)
+'''
 
 
 class VectorQuantizeImage(nn.Module):
