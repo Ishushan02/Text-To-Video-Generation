@@ -32,8 +32,8 @@ wandb.login()
 
 wandb.init(
     project="T2V-VQVAE-2",  
-    name="experiment-1-thread-8",    
-    id="yh6zn56b",  
+    name="experiment-1-thread-cummlative",    
+    id="m6ms1f4w",  
     resume="allow",
 )
 
@@ -235,11 +235,32 @@ class VecQVAE(nn.Module):
 # quantized_latents.shape, decoderOut.shape, codebook_loss, commitment_loss, encoding_indices.shape, perplexity, diversity_loss
 
 
-dataset = pd.read_csv("./data/modified_tgif.csv")
+dataset = pd.read_csv("./projects/t2v-gif/data/modified_tgif.csv")
 dataset = dataset[(dataset['frames'] <= 40) & (dataset['frames'] > 15)].copy().reset_index(drop=True)
 print(dataset.shape)
-dataset = dataset[56000:64000] # 8th thread 
+# dataset = dataset[72000:] # 9th thread 
 # dataset.shape
+
+'''
+The Below function is just for last training run for VQVAE - Cummulative Run I am doing now, remove this for general Runs
+'''
+threads = []
+i = 0
+while i < dataset.shape[0]:
+    threads.append(dataset[i:i+10000])
+    i = i + 10000
+
+cummulativeIndices = []
+
+for i in range(len(threads)):
+    indices = threads[i].index[threads[i]['frames'] > 35].tolist()
+    cummulativeIndices.extend(indices)
+
+# print(len(cummulativeIndices))
+cummulativeData = dataset.loc[cummulativeIndices]
+cummulativeData = cummulativeData.reset_index(drop=True)
+
+print(f"Cummulative Dataset Shape: {cummulativeData.shape}")
 
 def getNumpyArray(dataset, index):
     url = dataset['url'][index]
@@ -271,60 +292,88 @@ def getNumpyArray(dataset, index):
 # tImg = getNumpyArray(dataset, 74801)
 # tImg.shape
 
+CACHEDIR = './projects/t2v-gif/data/cachedData'
 
 class FrameDataset(Dataset):
-    def __init__(self, data, totalSequence = 40, transform = None):
+    def __init__(self, data, totalSequence=40, transform=None, cache_dir=CACHEDIR):
         super().__init__()
         self.data = data
         self.transform = transform
         self.totalSequence = totalSequence
+        self.cache_dir = cache_dir
+        os.makedirs(self.cache_dir, exist_ok=True)
 
     def __len__(self):
         return len(self.data)
-    
+
     def npArray(self, index):
-        try:
-            row = self.data.iloc[index]
-            totalframes = self.data.iloc[index]['frames']
-            url = row['url']
+        row = self.data.iloc[index]
+        url = row['url']
+        resp = urllib.request.urlopen(url)
+        image_data = resp.read()
+        img = Image.open(io.BytesIO(image_data))
+
+        frames = []
+        for frame in ImageSequence.Iterator(img):
+            frame_rgb = frame.convert("RGB")
+            frames.append(np.array(frame_rgb))
+        return frames
+
+    def __getitem__(self, index):
+        row = self.data.iloc[index]
+        url = row['url']
+        caption = row['caption']
+        totalframes = row['frames']
+        gif_path = os.path.join(self.cache_dir, f'{index}.gif')
+
+        if not os.path.exists(gif_path):
             resp = urllib.request.urlopen(url)
             image_data = resp.read()
-            img = Image.open(io.BytesIO(image_data))
-    
-            frames = []
-            for frame in ImageSequence.Iterator(img):
-                frame_rgb = frame.convert("RGB")
-                frames.append(np.array(frame_rgb))
-    
-            return frames
-    
-        except Exception as e:
-            print(f"Error processing index {index} for url {url}: {e}")
-            fallback = torch.zeros((256, 256, 3), dtype=torch.uint8)
-            return [fallback.numpy()]
-    
-    def __getitem__(self, index):
-        # print(index)
-        gif = self.npArray(index)
-        caption = self.data.iloc[index]['caption']
-        totalframes = len(gif)#self.data.iloc[index]['frames']
-        
-        if totalframes < self.totalSequence:
-            gif += [gif[-1]] * (self.totalSequence - totalframes)
+            with open(gif_path, 'wb') as f:
+                f.write(image_data)
+        else:
+            with open(gif_path, 'rb') as f:
+                image_data = f.read()
 
-        tensorFrames = torch.stack([
-            self.transform(Image.fromarray(frame)) for frame in gif
-        ])
+        img = Image.open(io.BytesIO(image_data))
 
-        tensorFrames = tensorFrames/255.0
+        frames = []
+        for frame in ImageSequence.Iterator(img):
+            frame_rgb = frame.convert("RGB")
+            frames.append(np.array(frame_rgb))
 
-        return tensorFrames, caption
+        if len(frames) < self.totalSequence:
+            frames += [frames[-1]] * (self.totalSequence - len(frames))
+        else:
+            frames = frames[:self.totalSequence]
+
+        if self.transform:
+            tensorFrames = torch.stack([
+                self.transform(Image.fromarray(frame)) for frame in frames
+            ])
+            tensorFrames = tensorFrames / 255.0
+            return tensorFrames, caption
+        else:
+            return frames, caption
+
     
-
 tranform = transforms.Compose([
-    transforms.Resize((128, 128)),
+    transforms.Resize((256, 256)),
     transforms.ToTensor(),
 ])
+
+# fdata = FrameDataset(cummulativeData, transform=tranform)
+
+# save all in prior
+# for i in range(len(cummulativeIndices)):
+#     index = cummulativeIndices[i]
+#     gif_path = os.path.join(CACHEDIR, f'{index}.gif')
+
+#     if not os.path.exists(gif_path):
+#         X, Y = fdata.__getitem__(index)
+    # print(X.shape, Y)
+
+print("All Data Pre Saved in Local Directory: ", len(os.listdir(CACHEDIR)))
 
 # fdata = FrameDataset(dataset, transform=tranform)
 
@@ -340,7 +389,7 @@ tranform = transforms.Compose([
     transforms.Resize((128, 128)),
     transforms.ToTensor(),
 ])
-torchDataset = FrameDataset(dataset, transform=tranform)
+torchDataset = FrameDataset(cummulativeData, transform=tranform)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 dataloader = DataLoader(torchDataset, batch_size=BATCH_SIZE, shuffle = True)
 modelA = VecQVAE(inChannels = inChannels, hiddenDim = hiddenDim, codeBookdim = codeBookdim, embedDim = embedDim).to(device)
@@ -397,11 +446,11 @@ def lab_color_loss(pred, target):
 # out = lab_color_loss(pred, pred1)
 # out.item()
 
-# modelValA = torch.load("./models/VQVAE-GIF.pt", map_location=torch.device('cpu'))
+# modelValA = torch.load("./projects/t2v-gif/models/VQVAE-GIF.pt", map_location=torch.device('cpu'))
 # modelA.load_state_dict(modelValA)
 start_epoch = 0
 
-checkpoint_path = "./models/VQVAE-GIF.pt"
+checkpoint_path = "./projects/t2v-gif/models/VQVAE-GIF.pt"
 if os.path.exists(checkpoint_path):
     checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
     modelA.load_state_dict(checkpoint['model_state_dict'])
@@ -411,7 +460,7 @@ if os.path.exists(checkpoint_path):
     print(f"Resuming from epoch {start_epoch}")
 else:
     print("Loading pretrained model...")
-    modelValA = torch.load("./models/VQVAE-GIF.pt", map_location=torch.device('cpu'))
+    modelValA = torch.load("./projects/t2v-gif/models/VQVAE-GIF.pt", map_location=torch.device('cpu'))
     modelA.load_state_dict(modelValA)
 
 modelA = torch.nn.DataParallel(modelA)
@@ -483,7 +532,7 @@ for each_epoch in range(start_epoch, epochs):
     diverse_loss /= len(dataloader)
     perceptualoss /= len(dataloader)
     colorLoss /= len(dataloader)
-    # torch.save(modelA.state_dict(), "./models/VQVAE-GIF.pt")
+    # torch.save(modelA.state_dict(), "./projects/t2v-gif/models/VQVAE-GIF.pt")
     torch.save({
         'epoch': each_epoch,
         'model_state_dict': modelA.module.state_dict(),
