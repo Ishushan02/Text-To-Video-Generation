@@ -25,7 +25,7 @@ Implementation Reference:  [Video-Generation-Flowing-MNIST](https://github.com/I
 #### Initial Observations:
 - During the early training stages, the **encoded-decoded frames** appeared in **black and white**, despite colored image inputs.
 - Initial Encoded-Decoded Images:  
-  <img src="imageVisualization/initial-VQVAE-results.png" width="800" height="400" />
+  <img src="imageVisualization/initial-VQVAE-results.png" width="600" height="350" />
 - This issue was resolved by adding two additional loss functions:
   - **Perceptual Loss** (based on a VGG network)
   - **Color Loss** using **LAB color space**:
@@ -43,7 +43,7 @@ Implementation Reference:  [Video-Generation-Flowing-MNIST](https://github.com/I
 +--------+--------------+---------------------+------------------------------------+
 ```
 - After Color-Loss Inclusion Encoded-Decoded Images:  
-  <img src="imageVisualization/midVQVAE.png" width="800" height="400" />
+  <img src="imageVisualization/midVQVAE.png" width="600" height="350" />
 ---
 
 ### Modifications from Base Implementation:
@@ -59,7 +59,7 @@ Implementation Reference:  [Video-Generation-Flowing-MNIST](https://github.com/I
     `256`: Embedding dimension of the vectorized VAE
 - Each Epoch takes about #hrs 45 mins to train
 - Final Encoded-Decoded Images:  
-  <img src="imageVisualization/VQVAE-Final.png" width="800" height="400" />
+  <img src="imageVisualization/VQVAE-Final.png" width="600" height="350" />
 ---
 
 ### Training Plots:
