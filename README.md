@@ -1,35 +1,4 @@
 # Text-To-Video-Generation
-<!-- This project focuses on developing a Text-to-Video Generation Model trained on the Tumblr-GIF dataset.
-
-Reading the Data
-- Processing Data in chunks as the GPU Limit is low, splitting data in chunks of 10,000
-- All the Frames are resized into 128 * 128
-- Only including those Videos(GIF's) whose frame size is more than 15 and less than that of 40
-- As of now I haven't added any security Safety for explicit content, will do it as an additive layer after model is created.
-- Total Video frames at the end is in all 
-
-Model Creation
-
-Part1 - Training Frames on VQVAE from (https://github.com/Ishushan02/Video-Generation-Flowing-MNIST/blob/main/model-4-VQVAE.ipynb)
-- Initial Training phase, the output encoded and decoding of frames where coming out as Black and white images see (imageVisualization/initial-VQVAE-results.png) 
-eventhough the input Image was coloured Image. After which with addition of 2 loss, one was VGG based Perceptual Loss and the other was color Loss which converts 
-image to LAB Color Space LAB(L:Lightness, A:Green to Red, B:blue to Yellow) which helped with RGB color prediction.
-
-MAIN REASON
-
-```
-+--------+--------------+---------------------+------------------------------------+
-| Input  | Ground Truth | Current Loss Output | current + Color Loss + Perceptual  |
-+--------+--------------+---------------------+------------------------------------+
-| ![IMG] | 🟩🟥🟦        | 🟩⬜⬜ (washed out)  | 🟩🟥🟦 (true color restored)    |
-+--------+--------------+---------------------+------------------------------------+
-```
-- The implementation of VQVAE is little modified as compared with the previous implementation of the code (https://github.com/Ishushan02/Video-Generation-Flowing-MNIST/blob/main/model-4-VQVAE.ipynb). I have added residual connections in between the blocks such that gradients don't collapse and the ability to learn dynamic features are more. 
-- Training all the threads (in total 10 threads) are trained for about 5 epochs, and at the end a cummulative data train from each thread such that the features are learned and older features are not forgotten.
-- The encoded Images dimension are (128 channels, 32 * 32 frame dimension)
-- Code Book Dimension : (1024 * 256) with 256 being embedding dimension of vectorized VAE -->
-
-# Text-to-Video Generation Model (Tumblr-GIF Dataset)
 
 ## Overview
 
@@ -51,8 +20,7 @@ This project focuses on developing a Text-to-Video Generation Model trained on t
 
 ### Part 1: VQ-VAE Training
 
-Implementation Reference:  
-[Video-Generation-Flowing-MNIST - VQVAE Model](https://github.com/Ishushan02/Video-Generation-Flowing-MNIST/blob/main/model-4-VQVAE.ipynb)
+Implementation Reference:  [Video-Generation-Flowing-MNIST](https://github.com/Ishushan02/Video-Generation-Flowing-MNIST/blob/main/model-4-VQVAE.ipynb)
 
 #### Initial Observations:
 - During the early training stages, the **encoded-decoded frames** appeared in **black and white**, despite colored image inputs.
@@ -138,7 +106,11 @@ Implementation Reference:
 ---
 
 
-Part2 - Train a Auto Regressive Transformer Model combining (positional Embedding, Text Embedding ) -> Giving output an Frame Embedding  throught time space to generate Video Frames..
+Part2 -
+
+In Progress ... 
+
+Train a Auto Regressive Transformer Model combining (positional Embedding, Text Embedding ) -> Giving output an Frame Embedding  throught time space to generate Video Frames..
 
 
 
