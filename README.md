@@ -1,10 +1,6 @@
 # Text-To-Video-Generation
 
-## Overview
-
 This project focuses on developing a Text-to-Video Generation Model trained on the Tumblr-GIF dataset.
-
----
 
 ## Data Processing
 
@@ -16,7 +12,7 @@ This project focuses on developing a Text-to-Video Generation Model trained on t
 
 ---
 
-## Model Architecture
+## Model
 
 ### Part 1: VQ-VAE Training
 
