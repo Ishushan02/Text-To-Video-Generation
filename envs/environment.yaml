@@ -1,4 +1,4 @@
-name: pytorch_env
+name: myenv
 channels:
   - conda-forge
   - defaults
@@ -20,4 +20,4 @@ dependencies:
     - torchview==0.2.7
     - piq==0.8.0
     - kornia==0.8.1
-    - opencv-python==4.12.0
+    - opencv-python==4.12.0.88

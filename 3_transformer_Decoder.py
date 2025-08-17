@@ -19,6 +19,7 @@ from tqdm import tqdm
 from torch.optim.lr_scheduler import StepLR
 import wandb
 
+
 wandb.login()
 
 wandb.init(
@@ -220,21 +221,25 @@ class VecQVAE(nn.Module):
         decodedOut= self.decodeImage(decoder_input, skips)
         return decoder_input, decodedOut, codebook_loss, commitment_loss, encoding_indices, perplexity, diversity_loss
 
-
+base_dir = os.path.dirname(__file__)
+model_path = os.path.join(base_dir, "models", "VQVAE-GIF-thread-52.pt")
+print(model_path)
 modelA = VecQVAE(inChannels = 3, hiddenDim = 512, codeBookdim = 1024, embedDim = 256)
-modelValA = torch.load("./projects/t2v-gif/models/VQVAE-GIF.pt", map_location=torch.device('cpu'))
-modelA.load_state_dict(modelValA['model_state_dict'])# test = torch.randn(32, 10, 3, 64, 64)
+modelValA = torch.load(model_path, map_location=torch.device('cpu'))
+modelA.load_state_dict(modelValA['model_state_dict'])
+# test = torch.randn(32, 10, 3, 64, 64)
 # quantized_latents, decoderOut, codebook_loss, commitment_loss, encoding_indices, perplexity, diversity_loss = VQ(test)
 # quantized_latents.shape, decoderOut.shape, codebook_loss, commitment_loss, encoding_indices.shape, perplexity, diversity_loss
 
-dataset = pd.read_csv("./projects/t2v-gif/data/modified_tgif.csv")
+dataFile = os.path.join(base_dir, "data", "modified_tgif.csv")
+dataset = pd.read_csv(dataFile)
 dataset = dataset[(dataset['frames'] <= 40) & (dataset['frames'] > 15)].copy().reset_index(drop=True)
 dataset = dataset[:10000] 
 
 # dataset.shape
 
 
-CACHEDIR = "./projects/t2v-gif/data/cachedData"
+CACHEDIR = os.path.join(base_dir, "data", "cachedData")#"data/cachedData"
 
 class FrameDataset(Dataset):
     def __init__(self, data, totalSequence=40, transform=None, cache_dir=CACHEDIR):
@@ -322,7 +327,7 @@ tranform = transforms.Compose([
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # modelA = VecQVAE(inChannels = inChannels, hiddenDim = hiddenDim, codeBookdim = codeBookdim, embedDim = embedDim).to(device)
 
-modelValA = torch.load("./projects/t2v-gif/models/VQVAE-GIF.pt", map_location=torch.device('cpu'))
+# modelValA = torch.load("models/VQVAE-GIF-thread-52.pt", map_location=torch.device('cpu'))
 epochs = 1000
 
 
@@ -446,7 +451,9 @@ epochs = 1000
 
 start_epoch = 0
 
-checkpoint_path = ""
+checkpoint_dir = os.path.join(base_dir, "model")
+checkpoint_path = os.path.join(checkpoint_dir, "decoder.pt")
+
 if os.path.exists(checkpoint_path):
     checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -464,7 +471,6 @@ model.to(device)
 
 for each_epoch in range(start_epoch, epochs):
     model.train()
-    decoderLoss = 0.0
     
     loop = tqdm(dataloader, f"{each_epoch}/{epochs}")
     decoderLoss = 0.0
@@ -492,7 +498,8 @@ for each_epoch in range(start_epoch, epochs):
         })
 
     decoderLoss /= len(dataloader)   
-    
+
+    os.makedirs(checkpoint_path, exist_ok=True)
     torch.save({
         'epoch': each_epoch,
         'model_state_dict': model.module.state_dict(),
