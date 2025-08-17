@@ -3,3 +3,4 @@ model
 models
 .DS_Store
 videoModels
+envs/envTest.py
