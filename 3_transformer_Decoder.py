@@ -1,4 +1,3 @@
-from transformers import CLIPTokenizer, CLIPTextModel
 import torch
 from torchvision import transforms
 import matplotlib.pyplot as plt
@@ -19,7 +18,6 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 from torch.optim.lr_scheduler import StepLR
 import wandb
-
 
 wandb.login()
 
