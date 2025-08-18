@@ -112,7 +112,7 @@ Implementation Reference:  [Video-Generation-Flowing-MNIST](https://github.com/I
 - Developed a Sequential Model using a Transformer architecture to predict CodeBook indices for each video frame, leveraging Temporal Dynamics to connect information across frames.  
 - Employed the BERT Tokenizer for effective tokenization of text input corresponding to each video.  
 - Training has been paused due to high GPU costs, as each epoch(for 1 chunk consisting 10000 GIF's) currently takes approximately 32 hours to complete.  
-  <img src="imageVisualization/trainingDecoder.png" width="400" height="450"/>  
+  <img src="imageVisualization/trainingDecoder.png" width="700" height="500"/>  
 - If you'd like to resume training, please continue from this script: [3_transformer_Decoder.py].  
 - If you need the pre-trained CodeBook weight file, feel free to reach out via email at [ishananand2002@gmail.com](mailto:ishananand2002@gmail.com).
 
