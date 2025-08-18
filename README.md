@@ -4,6 +4,7 @@ This project focuses on developing a Text-to-Video Generation Model trained on t
 
 ## Data Processing
 
+- Dataset is downloaded from [TGIF-Dataset](https://raingo.github.io/TGIF-Release//).
 - Due to GPU memory constraints, the dataset is processed in chunks of 10,000 samples.
 - All video frames are resized to 128 × 128 pixel Frames.
 - Only videos (GIFs) with a frame count between 15 and 40 are included.
@@ -107,19 +108,13 @@ Implementation Reference:  [Video-Generation-Flowing-MNIST](https://github.com/I
 
 ---
 
+### Part 2: VQ-VAE Training
+- Developed a Sequential Model using a Transformer architecture to predict CodeBook indices for each video frame, leveraging Temporal Dynamics to connect information across frames.  
+- Employed the BERT Tokenizer for effective tokenization of text input corresponding to each video.  
+- Training has been paused due to high GPU costs, as each epoch(for 1 chunk consisting 10000 GIF's) currently takes approximately 32 hours to complete.  
+  <img src="imageVisualization/trainingDecoder.png" width="400" height="450"/>  
+- If you'd like to resume training, please continue from this script: [3_transformer_Decoder.py].  
+- If you need the pre-trained CodeBook weight file, feel free to reach out via email at [ishananand2002@gmail.com](mailto:ishananand2002@gmail.com).
 
-Part2 -
-
-In Progress ... 
-
-Train a Auto Regressive Transformer Model combining (positional Embedding, Text Embedding ) -> Giving output an Frame Embedding  throught time space to generate Video Frames..
-
-
-
-Text Encoding 
-CLIP Based only 77 MAX Tokens as input
-Using BERT - 512 MAX .. 
-Roberta, GPT all are very much higher..
-
-Model
-Added postional embed to text, temporal embed for videos and Encoder in and out
+This project is still a work in progress and open for collaboration.  
+Contributions and optimization suggestions are welcome.
