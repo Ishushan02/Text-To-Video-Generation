@@ -108,7 +108,7 @@ Implementation Reference:  [Video-Generation-Flowing-MNIST](https://github.com/I
 
 ---
 
-### Part 2: VQ-VAE Training
+### Part 2: Transformer Training
 - Developed a Sequential Model using a Transformer architecture to predict CodeBook indices for each video frame, leveraging Temporal Dynamics to connect information across frames.  
 - Employed the BERT Tokenizer for effective tokenization of text input corresponding to each video.  
 - Training has been paused due to high GPU costs, as each epoch(for 1 chunk consisting 10000 GIF's) currently takes approximately 32 hours to complete.  
